@@ -1,6 +1,3 @@
-# ImmoScout-Email-Automation
-An Apple Script that answers incoming requests from ImmobilienScout with a local email automation.
-
 # ImmobilienScout24 E-Mail Automation
 
 Automatische Antworten auf ImmobilienScout24-Anfragen mit personalisierten Templates.
