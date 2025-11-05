@@ -5,7 +5,7 @@
 
 -- VERSION & UPDATE
 property scriptVersion : "1.0.1"
-property githubRawURL : "https://raw.githubusercontent.com/andreasdiehl/ImmoScout-Email-Automation/refs/heads/main/Script.applescript"
+property githubRawURL : "https://raw.githubusercontent.com/andreasdiehl/ImmoScout-Email-Automation/main/Script.applescript"
 property autoUpdateCheck : true -- false um Auto-Update zu deaktivieren
 
 -- ========================================
