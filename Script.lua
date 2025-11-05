@@ -1,6 +1,25 @@
+-- =====================================================
+-- ImmobilienScout E-Mail Processor mit Templates
+-- Version mit E-Mail-Validierung und Auto-Update
+-- =====================================================
+
+-- VERSION & UPDATE
+property scriptVersion : "1.0.0"
+property githubRawURL : "https://raw.githubusercontent.com/andreasdiehl/ImmoScout-Email-Automation/main/ImmobilienScout_Processor.scpt"
+property autoUpdateCheck : true -- false um Auto-Update zu deaktivieren
+
 -- ========================================
 -- KONFIGURATION:
 -- ========================================
+-- VERFÜGBARE VARIABLEN FÜR BETREFF UND BODY:
+-- {SCOUT_ID}      - Scout-ID der Immobilie (z.B. 162188779)
+-- {TITEL}         - Titel der Immobilie
+-- {REFERENZ_ID}   - Ihre Referenz-ID (z.B. OMS 4-1-12)
+-- {ANREDE}        - Anrede des Interessenten (Frau/Herr)
+-- {VORNAME}       - Vorname des Interessenten
+-- {NACHNAME}      - Nachname des Interessenten
+-- {EMAIL}         - E-Mail des Interessenten
+-- {NACHRICHT}     - Nachricht des Interessenten
 
 -- 1. ABSENDER E-MAIL (die geprüft werden soll)
 property absenderEmail : "nicolosi@wohnwert.im"
@@ -9,7 +28,7 @@ property absenderEmail : "nicolosi@wohnwert.im"
 property templatesOrdner : "ImmoScout Templates"
 
 -- 3. DEINE ABSENDER-ADRESSE (mit der E-Mails erstellt werden)
-property absenderAdresse : "andreas.diehl2@gmail.com"
+property absenderAdresse : "andreas.diehl@gmail.com"
 
 -- 4. BETREFF FÜR ANTWORT-E-MAILS
 property antwortBetreff : "Ihre Anfrage zu Objekt {REFERENZ_ID}"
@@ -32,21 +51,24 @@ property verhalten : "save"
 --    false = Original-E-Mail bleibt im Posteingang
 property originalLoeschen : false
 
--- VERFÜGBARE VARIABLEN FÜR BETREFF UND BODY:
--- {SCOUT_ID}      - Scout-ID der Immobilie (z.B. 162188779)
--- {TITEL}         - Titel der Immobilie
--- {REFERENZ_ID}   - Ihre Referenz-ID (z.B. OMS 4-1-12)
--- {ANREDE}        - Anrede des Interessenten (Frau/Herr)
--- {VORNAME}       - Vorname des Interessenten
--- {NACHNAME}      - Nachname des Interessenten
--- {EMAIL}         - E-Mail des Interessenten
--- {NACHRICHT}     - Nachricht des Interessenten
-
 -- ========================================
 -- AB HIER NICHTS ÄNDERN
 -- ========================================
 
 on run
+	-- AUTO-UPDATE CHECK
+	if autoUpdateCheck then
+		set updateVerfuegbar to my pruefeUpdate()
+		if updateVerfuegbar then
+			set antwort to button returned of (display dialog "🆕 Neue Script-Version verfügbar!" & return & return & "Aktuelle Version: " & scriptVersion & return & "Möchten Sie jetzt aktualisieren?" buttons {"Später", "Jetzt updaten"} default button "Jetzt updaten" with icon note)
+			
+			if antwort is "Jetzt updaten" then
+				my fuehreUpdateAus()
+				return -- Script wird neu gestartet
+			end if
+		end if
+	end if
+	
 	-- VALIDIERE KONFIGURATION
 	set validierungErfolg to my validiereKonfiguration()
 	if not validierungErfolg then
@@ -325,6 +347,140 @@ on verarbeiteEmail(dieEmail, templateMailbox, verhalten, echteDaten)
 		
 	end tell
 end verarbeiteEmail
+
+-- ========================================
+-- AUTO-UPDATE FUNKTIONEN
+-- ========================================
+
+on pruefeUpdate()
+	try
+		-- Lade Script von GitHub
+		set githubScript to do shell script "curl -s " & quoted form of githubRawURL
+		
+		-- Extrahiere Version aus GitHub-Script
+		set AppleScript's text item delimiters to "property scriptVersion : \""
+		set teile to text items of githubScript
+		if (count of teile) > 1 then
+			set versionString to item 2 of teile
+			set AppleScript's text item delimiters to "\""
+			set githubVersion to item 1 of text items of versionString
+			set AppleScript's text item delimiters to ""
+			
+			-- Vergleiche Versionen
+			if githubVersion is not scriptVersion then
+				return true
+			end if
+		end if
+		set AppleScript's text item delimiters to ""
+	on error errMsg
+		-- Stiller Fehler - kein Internet oder GitHub down
+		return false
+	end try
+	return false
+end pruefeUpdate
+
+on fuehreUpdateAus()
+	try
+		tell application "Mail" to activate
+		
+		-- 1. AKTUELLE CONFIG SICHERN
+		set aktuelleConfig to ¬
+			¬
+				¬
+					¬
+						¬
+							¬
+								¬
+									{absenderEmail:absenderEmail, templatesOrdner:templatesOrdner, absenderAdresse:absenderAdresse, antwortBetreff:antwortBetreff, echteDaten:echteDaten, testEmail:testEmail, verhalten:verhalten, originalLoeschen:originalLoeschen} ¬
+										
+		
+		-- 2. NEUE VERSION VON GITHUB LADEN
+		set neuesScript to do shell script "curl -s " & quoted form of githubRawURL
+		
+		if neuesScript is "" then
+			display dialog "❌ Update fehlgeschlagen!" & return & return & "Konnte neue Version nicht laden." buttons {"OK"} with icon stop
+			return
+		end if
+		
+		-- 3. CONFIG IN NEUES SCRIPT EINSETZEN
+		set neuesScript to my ersetzeConfigImScript(neuesScript, aktuelleConfig)
+		
+		-- 4. SPEICHERE NEUES SCRIPT
+		set scriptPfad to (path to me) as text
+		set scriptDatei to open for access file scriptPfad with write permission
+		set eof scriptDatei to 0
+		write neuesScript to scriptDatei as «class utf8»
+		close access scriptDatei
+		
+		-- 5. ERFOLG MELDEN
+		display dialog "✅ Update erfolgreich!" & return & return & "Das Script wird jetzt neu gestartet." buttons {"OK"} with icon note
+		
+		-- 6. NEU STARTEN
+		tell application "Script Editor"
+			open file scriptPfad
+		end tell
+		
+	on error errMsg
+		display dialog "❌ Update fehlgeschlagen!" & return & return & errMsg buttons {"OK"} with icon stop
+		try
+			close access file (path to me)
+		end try
+	end try
+end fuehreUpdateAus
+
+on ersetzeConfigImScript(scriptText, configWerte)
+	-- Ersetze alle Config-Properties
+	set scriptText to my ersetzeProperty(scriptText, "absenderEmail", absenderEmail of configWerte)
+	set scriptText to my ersetzeProperty(scriptText, "templatesOrdner", templatesOrdner of configWerte)
+	set scriptText to my ersetzeProperty(scriptText, "absenderAdresse", absenderAdresse of configWerte)
+	set scriptText to my ersetzeProperty(scriptText, "antwortBetreff", antwortBetreff of configWerte)
+	set scriptText to my ersetzeProperty(scriptText, "echteDaten", echteDaten of configWerte as string)
+	set scriptText to my ersetzeProperty(scriptText, "testEmail", testEmail of configWerte)
+	set scriptText to my ersetzeProperty(scriptText, "verhalten", verhalten of configWerte)
+	set scriptText to my ersetzeProperty(scriptText, "originalLoeschen", originalLoeschen of configWerte as string)
+	
+	return scriptText
+end ersetzeConfigImScript
+
+on ersetzeProperty(scriptText, propertyName, neuerWert)
+	try
+		-- Finde die Zeile mit: property propertyName : "..."
+		set suchMuster to "property " & propertyName & " : "
+		
+		if scriptText contains suchMuster then
+			set AppleScript's text item delimiters to suchMuster
+			set teile to text items of scriptText
+			
+			if (count of teile) > 1 then
+				set nachProperty to item 2 of teile
+				
+				-- Finde das Ende der Zeile
+				set AppleScript's text item delimiters to {return, linefeed}
+				set zeilen to text items of nachProperty
+				set alteZeile to item 1 of zeilen
+				
+				-- Bestimme Anführungszeichen (String oder Boolean)
+				if neuerWert is "true" or neuerWert is "false" then
+					set neueZeile to neuerWert
+				else
+					set neueZeile to "\"" & neuerWert & "\""
+				end if
+				
+				-- Ersetze die Zeile
+				set AppleScript's text item delimiters to suchMuster & alteZeile
+				set teile to text items of scriptText
+				set AppleScript's text item delimiters to suchMuster & neueZeile
+				set scriptText to teile as string
+			end if
+		end if
+		
+		set AppleScript's text item delimiters to ""
+	on error
+		set AppleScript's text item delimiters to ""
+	end try
+	
+	return scriptText
+end ersetzeProperty
 
 -- ========================================
 -- HILFSFUNKTIONEN
