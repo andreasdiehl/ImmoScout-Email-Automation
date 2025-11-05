@@ -348,83 +348,34 @@ on verarbeiteEmail(dieEmail, templateMailbox, verhalten, echteDaten)
 	end tell
 end verarbeiteEmail
 
--- ========================================
--- AUTO-UPDATE FUNKTIONEN
--- ========================================
-
-on pruefeUpdate()
-	try
-		-- Lade Script von GitHub
-		set githubScript to do shell script "curl -s " & quoted form of githubRawURL
-		
-		-- Extrahiere Version aus GitHub-Script
-		set AppleScript's text item delimiters to "property scriptVersion : \""
-		set teile to text items of githubScript
-		if (count of teile) > 1 then
-			set versionString to item 2 of teile
-			set AppleScript's text item delimiters to "\""
-			set githubVersion to item 1 of text items of versionString
-			set AppleScript's text item delimiters to ""
-			
-			-- Vergleiche Versionen
-			if githubVersion is not scriptVersion then
-				return true
-			end if
-		end if
-		set AppleScript's text item delimiters to ""
-	on error errMsg
-		-- Stiller Fehler - kein Internet oder GitHub down
-		return false
-	end try
-	return false
-end pruefeUpdate
-
 on fuehreUpdateAus()
 	try
-		tell application "Mail" to activate
-		
-		-- 1. AKTUELLE CONFIG SICHERN
-		set aktuelleConfig to ¬
-			¬
-				¬
-					¬
-						¬
-							¬
-								¬
-									{absenderEmail:absenderEmail, templatesOrdner:templatesOrdner, absenderAdresse:absenderAdresse, antwortBetreff:antwortBetreff, echteDaten:echteDaten, testEmail:testEmail, verhalten:verhalten, originalLoeschen:originalLoeschen} ¬
-										
-		
-		-- 2. NEUE VERSION VON GITHUB LADEN
+		-- Lade neue Version
 		set neuesScript to do shell script "curl -s " & quoted form of githubRawURL
 		
 		if neuesScript is "" then
-			display dialog "❌ Update fehlgeschlagen!" & return & return & "Konnte neue Version nicht laden." buttons {"OK"} with icon stop
+			display dialog "❌ Keine Verbindung zu GitHub" buttons {"OK"}
 			return
 		end if
 		
-		-- 3. CONFIG IN NEUES SCRIPT EINSETZEN
+		-- Config sichern und einsetzen
+		set aktuelleConfig to {absenderEmail:absenderEmail, templatesOrdner:templatesOrdner, absenderAdresse:absenderAdresse, antwortBetreff:antwortBetreff, echteDaten:echteDaten, testEmail:testEmail, verhalten:verhalten, originalLoeschen:originalLoeschen}
 		set neuesScript to my ersetzeConfigImScript(neuesScript, aktuelleConfig)
 		
-		-- 4. SPEICHERE NEUES SCRIPT
-		set scriptPfad to (path to me) as text
-		set scriptDatei to open for access file scriptPfad with write permission
-		set eof scriptDatei to 0
-		write neuesScript to scriptDatei as «class utf8»
-		close access scriptDatei
+		-- In Temp speichern
+		set tempPfad to "/tmp/immoscout_update.applescript"
+		do shell script "cat > " & quoted form of tempPfad & " << 'EOF'" & return & neuesScript & return & "EOF"
 		
-		-- 5. ERFOLG MELDEN
-		display dialog "✅ Update erfolgreich!" & return & return & "Das Script wird jetzt neu gestartet." buttons {"OK"} with icon note
+		-- Ersetze im Hintergrund
+		set scriptPfad to POSIX path of (path to me)
+		do shell script "( sleep 3 && mv " & quoted form of tempPfad & " " & quoted form of scriptPfad & " ) > /dev/null 2>&1 &"
 		
-		-- 6. NEU STARTEN
-		tell application "Script Editor"
-			open file scriptPfad
-		end tell
+		display dialog "✅ Update installiert!" & return & return & "Bitte öffnen Sie das Script neu." buttons {"OK"}
 		
+		-- Beenden
+		quit
 	on error errMsg
-		display dialog "❌ Update fehlgeschlagen!" & return & return & errMsg buttons {"OK"} with icon stop
-		try
-			close access file (path to me)
-		end try
+		display dialog "❌ Fehler: " & errMsg buttons {"OK"}
 	end try
 end fuehreUpdateAus
 
