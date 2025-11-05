@@ -4,7 +4,7 @@
 -- =====================================================
 
 -- VERSION & UPDATE
-property scriptVersion : "1.0.0"
+property scriptVersion : "1.0.1"
 property githubRawURL : "https://raw.githubusercontent.com/andreasdiehl/ImmoScout-Email-Automation/main/ImmobilienScout_Processor.scpt"
 property autoUpdateCheck : true -- false um Auto-Update zu deaktivieren
 
@@ -28,7 +28,7 @@ property absenderEmail : "nicolosi@wohnwert.im"
 property templatesOrdner : "ImmoScout Templates"
 
 -- 3. DEINE ABSENDER-ADRESSE (mit der E-Mails erstellt werden)
-property absenderAdresse : "andreas.diehl@gmail.com"
+property absenderAdresse : "andreas.diehl2@gmail.com"
 
 -- 4. BETREFF FÜR ANTWORT-E-MAILS
 property antwortBetreff : "Ihre Anfrage zu Objekt {REFERENZ_ID}"
