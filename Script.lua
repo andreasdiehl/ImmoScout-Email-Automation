@@ -9,7 +9,7 @@ property absenderEmail : "nicolosi@wohnwert.im"
 property templatesOrdner : "ImmoScout Templates"
 
 -- 3. DEINE ABSENDER-ADRESSE (mit der E-Mails erstellt werden)
-property absenderAdresse : "andreas.diehl@gmail.com"
+property absenderAdresse : "andreas.diehl2@gmail.com"
 
 -- 4. BETREFF FÜR ANTWORT-E-MAILS
 property antwortBetreff : "Ihre Anfrage zu Objekt {REFERENZ_ID}"
