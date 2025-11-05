@@ -6,11 +6,10 @@ Automatische Antworten auf ImmobilienScout24-Anfragen mit personalisierten Templ
 
 ### 1️⃣ Script herunterladen
 - Gehe zu: [Script.applescript](https://github.com/andreasdiehl/ImmoScout-Email-Automation/blob/main/Script.applescript)
-- Klicke **"Raw"** (oben rechts)
-![Immoscout RAW](https://github.com/user-attachments/assets/7e53ef06-4cf8-4cf2-8ed5-909db561ac3e)
+- Klick **"Dowbload"** (oben rechts)
+![Donwload Script](https://github.com/user-attachments/assets/39390e42-fba4-4d4f-82df-34c60018eced)
 
-- **⌘S** → Speichern als `ImmobilienScout.applescript`
-- Speichere es z.B. in `Dokumente/Scripts/`
+- Speicher es z.B. in `Dokumente/Scripts/`
 
 ### 2️⃣ Script konfigurieren
 Öffne das Script im **Script-Editor** und passe **Zeilen 24-51** an:
