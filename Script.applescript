@@ -1,12 +1,10 @@
-﻿-- =====================================================
+-- =====================================================
 -- ImmobilienScout E-Mail Processor mit Templates
--- Version mit E-Mail-Validierung und Auto-Update
+-- Finale Version - Stabil und Einfach
 -- =====================================================
 
--- VERSION & UPDATE
-property scriptVersion : "1.0.1"
-property githubRawURL : "https://raw.githubusercontent.com/andreasdiehl/ImmoScout-Email-Automation/main/Script.applescript"
-property autoUpdateCheck : true -- false um Auto-Update zu deaktivieren
+-- VERSION
+property scriptVersion : "1.0.0"
 
 -- ========================================
 -- KONFIGURATION:
@@ -56,19 +54,6 @@ property originalLoeschen : false
 -- ========================================
 
 on run
-	-- AUTO-UPDATE CHECK
-	if autoUpdateCheck then
-		set updateVerfuegbar to my pruefeUpdate()
-		if updateVerfuegbar then
-			set antwort to button returned of (display dialog "🆕 Neue Script-Version verfügbar!" & return & return & "Aktuelle Version: " & scriptVersion & return & "Möchten Sie jetzt aktualisieren?" buttons {"Später", "Jetzt updaten"} default button "Jetzt updaten" with icon note)
-			
-			if antwort is "Jetzt updaten" then
-				my fuehreUpdateAus()
-				return -- Script wird neu gestartet
-			end if
-		end if
-	end if
-	
 	-- VALIDIERE KONFIGURATION
 	set validierungErfolg to my validiereKonfiguration()
 	if not validierungErfolg then
@@ -80,7 +65,7 @@ on run
 		
 		-- Validiere Konfiguration
 		if verhalten is not "save" and verhalten is not "send" then
-			set dialogText to "❌ KONFIGURATIONSFEHLER!" & return & return & "Die Variable 'verhalten' (Zeile 44) muss entweder 'save' oder 'send' sein." & return & return & "Aktuell: '" & verhalten & "'" & return & return & "Bitte korrigieren!"
+			set dialogText to "❌ KONFIGURATIONSFEHLER!" & return & return & "Die Variable 'verhalten' muss entweder 'save' oder 'send' sein." & return & return & "Aktuell: '" & verhalten & "'" & return & return & "Bitte korrigieren!"
 			display dialog dialogText buttons {"OK"} with icon stop
 			return
 		end if
@@ -236,17 +221,17 @@ on validiereKonfiguration()
 	
 	-- Validiere absenderEmail
 	if not my validiereEmail(absenderEmail) then
-		set end of fehlerListe to "❌ Überwachte Absender-Adresse (Zeile 27): '" & absenderEmail & "'"
+		set end of fehlerListe to "❌ Überwachte Absender-Adresse: '" & absenderEmail & "'"
 	end if
 	
 	-- Validiere absenderAdresse
 	if not my validiereEmail(absenderAdresse) then
-		set end of fehlerListe to "❌ Ihre Absender-Adresse (Zeile 33): '" & absenderAdresse & "'"
+		set end of fehlerListe to "❌ Ihre Absender-Adresse: '" & absenderAdresse & "'"
 	end if
 	
 	-- Validiere testEmail
 	if not my validiereEmail(testEmail) then
-		set end of fehlerListe to "❌ Test-E-Mail-Adresse (Zeile 42): '" & testEmail & "'"
+		set end of fehlerListe to "❌ Test-E-Mail-Adresse: '" & testEmail & "'"
 	end if
 	
 	if (count of fehlerListe) > 0 then
@@ -347,91 +332,6 @@ on verarbeiteEmail(dieEmail, templateMailbox, verhalten, echteDaten)
 		
 	end tell
 end verarbeiteEmail
-
-on fuehreUpdateAus()
-	try
-		-- Lade neue Version
-		set neuesScript to do shell script "curl -s " & quoted form of githubRawURL
-		
-		if neuesScript is "" then
-			display dialog "❌ Keine Verbindung zu GitHub" buttons {"OK"}
-			return
-		end if
-		
-		-- Config sichern und einsetzen
-		set aktuelleConfig to {absenderEmail:absenderEmail, templatesOrdner:templatesOrdner, absenderAdresse:absenderAdresse, antwortBetreff:antwortBetreff, echteDaten:echteDaten, testEmail:testEmail, verhalten:verhalten, originalLoeschen:originalLoeschen}
-		set neuesScript to my ersetzeConfigImScript(neuesScript, aktuelleConfig)
-		
-		-- In Temp speichern
-		set tempPfad to "/tmp/immoscout_update.applescript"
-		do shell script "cat > " & quoted form of tempPfad & " << 'EOF'" & return & neuesScript & return & "EOF"
-		
-		-- Ersetze im Hintergrund
-		set scriptPfad to POSIX path of (path to me)
-		do shell script "( sleep 3 && mv " & quoted form of tempPfad & " " & quoted form of scriptPfad & " ) > /dev/null 2>&1 &"
-		
-		display dialog "✅ Update installiert!" & return & return & "Bitte öffnen Sie das Script neu." buttons {"OK"}
-		
-		-- Beenden
-		quit
-	on error errMsg
-		display dialog "❌ Fehler: " & errMsg buttons {"OK"}
-	end try
-end fuehreUpdateAus
-
-on ersetzeConfigImScript(scriptText, configWerte)
-	-- Ersetze alle Config-Properties
-	set scriptText to my ersetzeProperty(scriptText, "absenderEmail", absenderEmail of configWerte)
-	set scriptText to my ersetzeProperty(scriptText, "templatesOrdner", templatesOrdner of configWerte)
-	set scriptText to my ersetzeProperty(scriptText, "absenderAdresse", absenderAdresse of configWerte)
-	set scriptText to my ersetzeProperty(scriptText, "antwortBetreff", antwortBetreff of configWerte)
-	set scriptText to my ersetzeProperty(scriptText, "echteDaten", echteDaten of configWerte as string)
-	set scriptText to my ersetzeProperty(scriptText, "testEmail", testEmail of configWerte)
-	set scriptText to my ersetzeProperty(scriptText, "verhalten", verhalten of configWerte)
-	set scriptText to my ersetzeProperty(scriptText, "originalLoeschen", originalLoeschen of configWerte as string)
-	
-	return scriptText
-end ersetzeConfigImScript
-
-on ersetzeProperty(scriptText, propertyName, neuerWert)
-	try
-		-- Finde die Zeile mit: property propertyName : "..."
-		set suchMuster to "property " & propertyName & " : "
-		
-		if scriptText contains suchMuster then
-			set AppleScript's text item delimiters to suchMuster
-			set teile to text items of scriptText
-			
-			if (count of teile) > 1 then
-				set nachProperty to item 2 of teile
-				
-				-- Finde das Ende der Zeile
-				set AppleScript's text item delimiters to {return, linefeed}
-				set zeilen to text items of nachProperty
-				set alteZeile to item 1 of zeilen
-				
-				-- Bestimme Anführungszeichen (String oder Boolean)
-				if neuerWert is "true" or neuerWert is "false" then
-					set neueZeile to neuerWert
-				else
-					set neueZeile to "\"" & neuerWert & "\""
-				end if
-				
-				-- Ersetze die Zeile
-				set AppleScript's text item delimiters to suchMuster & alteZeile
-				set teile to text items of scriptText
-				set AppleScript's text item delimiters to suchMuster & neueZeile
-				set scriptText to teile as string
-			end if
-		end if
-		
-		set AppleScript's text item delimiters to ""
-	on error
-		set AppleScript's text item delimiters to ""
-	end try
-	
-	return scriptText
-end ersetzeProperty
 
 -- ========================================
 -- HILFSFUNKTIONEN
@@ -590,7 +490,7 @@ on extrahiereNachricht(inhalt)
 	set nachNachricht to ""
 	set nachrichtGefunden to false
 	
-	-- Variante 1: "Nachricht Ihrer Interessent:innen" (mit Doppelpunkt)
+	-- Variante 1: "Nachricht Ihrer Interessent:innen"
 	if inhalt contains "Nachricht Ihrer Interessent:innen" then
 		set AppleScript's text item delimiters to "Nachricht Ihrer Interessent:innen"
 		set teile to text items of inhalt
@@ -601,7 +501,7 @@ on extrahiereNachricht(inhalt)
 		set AppleScript's text item delimiters to ""
 	end if
 	
-	-- Variante 2: "Nachricht Ihrer Interessent" (ohne :innen)
+	-- Variante 2: "Nachricht Ihrer Interessent"
 	if not nachrichtGefunden and inhalt contains "Nachricht Ihrer Interessent" then
 		set AppleScript's text item delimiters to "Nachricht Ihrer Interessent"
 		set teile to text items of inhalt
@@ -639,7 +539,6 @@ on extrahiereNachricht(inhalt)
 		
 		-- Überspringe Header und kurze Zeilen am Anfang
 		if not textBegonnen then
-			-- Beginne mit Zeilen die "Sehr" oder "Hallo" oder ähnliches enthalten, oder >20 Zeichen haben
 			if (length of eineZeile) > 15 and not (eineZeile contains "Von:") and not (eineZeile contains "Betreff:") and not (eineZeile contains "Datum:") and not (eineZeile contains "Nachrichtenverlauf") then
 				set textBegonnen to true
 			end if
