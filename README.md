@@ -12,7 +12,8 @@ Automatische Antworten auf ImmobilienScout24-Anfragen mit personalisierten Templ
 - Speicher es z.B. in `Dokumente/Scripts/`
 
 ### 2️⃣ Script konfigurieren
-Öffne das Script im **Script-Editor** und passe **Zeilen 24-51** an:
+- Öffne das Scriptim **Script-Editor** (Doppelklick oder rechte Maustaste "öffnen mit")
+- Passe **Zeilen 24-51** an:
 
 ```applescript
 property absenderEmail : "deine@immoscout-email.de"      -- Von welcher Adresse kommen die Anfragen?
@@ -20,8 +21,8 @@ property templatesOrdner : "ImmoScout Templates"          -- Name des Template-O
 property absenderAdresse : "dein@email.de"               -- Deine Absender-Adresse
 property testEmail : "dein@email.de"                     -- Für Test-Modus
 ```
+- **Speichern:** ⌘S das Script nach deinen Anpassungen
 
-**Speichern:** ⌘S
 
 ### 3️⃣ Templates-Ordner erstellen
 1. Öffne **Mail**
