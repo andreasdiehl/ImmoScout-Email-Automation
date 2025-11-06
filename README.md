@@ -1,34 +1,27 @@
 # ImmobilienScout24 E-Mail Automation
 
-Automatische Antworten auf ImmobilienScout24-Anfragen mit personalisierten Templates.
+Dieses Script ist für Apple User die mit Mac Mail arbeiten. Das Script bereitet automatisch Antworten auf ImmobilienScout24-Anfragen mit personalisierten Templates vor bzw. sendet diese direkt ab.
 
 ### 1️⃣ Script herunterladen oder aktualisieren
 - Gehe zu: [Script.applescript](https://github.com/andreasdiehl/ImmoScout-Email-Automation/blob/main/Script.applescript)
 - Klick **"Dowbload"** (oben rechts)
 ![Donwload Script](https://github.com/user-attachments/assets/39390e42-fba4-4d4f-82df-34c60018eced)
-- Richte dir einen Ordner ein (egal wo) z.B. in `Dokumente/Scripts/ und lege das Script dort ab bzw. ersetze das alte Script ersatzlos
+- Richte einen Ordner auf dem Rechner ein (egal wo) z.B. in `Dokumente/Scripts/ und lege das Script dort ab bzw. ersetze ein bestehendes Script ersatzlos
 
-### 2️⃣ Script herunterladen & konfigurieren
-- Gehe zu: [Script.applescript](https://github.com/andreasdiehl/ImmoScout-Email-Automation/blob/main/Script.applescript)
-- Klick **"Dowbload"** (oben rechts)
-- Öffne die Config Datei z.B. **Script-Editor** oder in einem beliebigen Text Editor (Doppelklick oder rechte Maustaste "öffnen mit")
-- Passe die folegnden Wertean:
-
-```applescript
-property absenderEmail : "deine@immoscout-email.de"      -- Von welcher Adresse kommen die Anfragen?
-property templatesOrdner : "ImmoScout Templates"         -- Name des Template-Ordners in Mail
-property absenderAdresse : "dein@email.de"               -- Deine Absender-Adresse
-property testEmail : "dein@email.de"                     -- Für Test-Modus
-property echteDaten : true / false                       -- Alle E-Mails gehen an deine testEmail
-property verhalten : save / send                         -- Erstellt nur Entwürfe (save) oder sendet die Nachricht direkt (send)
-```
-- **Speichern:** ⌘S die Config Script nach deinen Anpassungen und lege die Config in den gleichen Ordner wie das Script
-
+### 2️⃣ Config herunterladen & konfigurieren
+- Damit das Script arbeiten kann brauchst Du eine Config Datei 👉 bitte kontaktiere mich dafür
+- Öffne die Config Datei in einem beliebigen Text Editor (Doppelklick oder rechte Maustaste "öffnen mit")
+- Passe die Werte an wie gewünscht an
+- **Speichern:** ⌘S die Config Script mit dem Namen config.txt nach deinen Anpassungen
+- Lege die config.txt in den gleichen Ordner wie das Script
 
 ### 3️⃣ Templates-Ordner erstellen
 1. Öffne **Mail**
-2. Rechtsklick auf **"Auf meinem Mac"** → **"Neuer Ordner"**
-3. Name: `ImmoScout Templates` (oder wie in Config angegeben)
+2. Suche in der linken Sidebar die Option "Auf meinem Mac"
+3. Erstelle eine neuen Ordner / Mailbox mit dem Namen `ImmoScout Templates` (oder wie in Config angegeben)
+
+![neue mailbox](https://github.com/user-attachments/assets/288ea086-596e-409b-b1d5-55cf580e48ea)
+
 
 ### 4️⃣ Templates erstellen
 
