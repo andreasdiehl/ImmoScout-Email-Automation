@@ -1,59 +1,35 @@
 -- =====================================================
--- ImmobilienScout E-Mail Processor mit Templates
--- Finale Version - Stabil und Einfach
+-- ImmobilienScout E-Mail Processor
+-- Mit externer Config und Datum-Filter
 -- =====================================================
 
--- VERSION
-property scriptVersion : "1.0.0"
+property scriptVersion : "1.1.0"
 
 -- ========================================
--- KONFIGURATION:
+-- KONFIGURATION (wird aus config.txt geladen)
 -- ========================================
--- VERFÜGBARE VARIABLEN FÜR BETREFF UND BODY:
--- {SCOUT_ID}      - Scout-ID der Immobilie (z.B. 162188779)
--- {TITEL}         - Titel der Immobilie
--- {REFERENZ_ID}   - Ihre Referenz-ID (z.B. OMS 4-1-12)
--- {ANREDE}        - Anrede des Interessenten (Frau/Herr)
--- {VORNAME}       - Vorname des Interessenten
--- {NACHNAME}      - Nachname des Interessenten
--- {EMAIL}         - E-Mail des Interessenten
--- {NACHRICHT}     - Nachricht des Interessenten
 
--- 1. ABSENDER E-MAIL (die geprüft werden soll)
-property absenderEmail : "nicolosi@wohnwert.im"
-
--- 2. TEMPLATES-ORDNER (der Ordner in dem die Templates liegen)
-property templatesOrdner : "ImmoScout Templates"
-
--- 3. DEINE ABSENDER-ADRESSE (mit der E-Mails erstellt werden)
-property absenderAdresse : "andreas.diehl@gmail.com"
-
--- 4. BETREFF FÜR ANTWORT-E-MAILS
-property antwortBetreff : "Ihre Anfrage zu Objekt {REFERENZ_ID}"
-
--- 5a. ECHTE EMPFÄNGER-DATEN VERWENDEN?
---    true  = Echte E-Mail-Adresse des Interessenten (PRODUKTIV)
---    false = Test-E-Mail verwenden (SICHER ZUM TESTEN!)
+property absenderEmail : ""
+property templatesOrdner : ""
+property absenderAdresse : ""
+property antwortBetreff : ""
 property echteDaten : false
-
--- 5b. TEST E-MAIL-ADRESSE (wird verwendet wenn echteDaten = false)
-property testEmail : "andreas.diehl@gmail.com"
-
--- 6. VERHALTEN - Was soll passieren?
---    "save" = Als Entwurf speichern (zur Review)
---    "send" = Direkt senden (VORSICHT!)
+property testEmail : ""
 property verhalten : "save"
-
--- 7. ORIGINAL E-MAIL LÖSCHEN?
---    true  = Original-E-Mail wird nach Verarbeitung gelöscht (in Papierkorb)
---    false = Original-E-Mail bleibt im Posteingang
 property originalLoeschen : false
+property ignoriereEmailsVorTagen : 30
 
 -- ========================================
 -- AB HIER NICHTS ÄNDERN
 -- ========================================
 
 on run
+	-- LADE CONFIG
+	set configErfolg to my ladeConfig()
+	if not configErfolg then
+		return
+	end if
+	
 	-- VALIDIERE KONFIGURATION
 	set validierungErfolg to my validiereKonfiguration()
 	if not validierungErfolg then
@@ -63,24 +39,19 @@ on run
 	tell application "Mail"
 		activate
 		
-		-- Validiere Konfiguration
-		if verhalten is not "save" and verhalten is not "send" then
-			set dialogText to "❌ KONFIGURATIONSFEHLER!" & return & return & "Die Variable 'verhalten' muss entweder 'save' oder 'send' sein." & return & return & "Aktuell: '" & verhalten & "'" & return & return & "Bitte korrigieren!"
-			display dialog dialogText buttons {"OK"} with icon stop
-			return
-		end if
-		
 		set verarbeiteteEmails to 0
 		set fehlerAnzahl to 0
 		set relevanteEmails to {}
 		set geseheneBetreffe to {}
 		
+		-- Berechne Stichtag
+		set stichtag to (current date) - (ignoriereEmailsVorTagen * days)
+		
 		-- Prüfe Templates-Ordner
 		try
 			set templateMailbox to mailbox templatesOrdner
 		on error
-			set dialogText to "❌ Templates-Ordner nicht gefunden!" & return & return & "Bitte erstelle den Ordner:" & return & "'" & templatesOrdner & "'" & return & return & "unter 'Auf meinem Mac' in Mail."
-			display dialog dialogText buttons {"OK"}
+			display dialog "❌ Templates-Ordner nicht gefunden!" & return & return & "Ordner: '" & templatesOrdner & "'" & return & "unter 'Auf meinem Mac'" buttons {"OK"}
 			return
 		end try
 		
@@ -91,21 +62,26 @@ on run
 				set gefundeneNachrichten to (messages of posteingang whose sender contains absenderEmail)
 				
 				repeat with eineNachricht in gefundeneNachrichten
-					set derBetreff to subject of eineNachricht
-					if derBetreff is not in geseheneBetreffe then
-						set end of relevanteEmails to eineNachricht
-						set end of geseheneBetreffe to derBetreff
+					set emailDatum to date received of eineNachricht
+					
+					-- Nur E-Mails nach Stichtag
+					if emailDatum ≥ stichtag then
+						set derBetreff to subject of eineNachricht
+						if derBetreff is not in geseheneBetreffe then
+							set end of relevanteEmails to eineNachricht
+							set end of geseheneBetreffe to derBetreff
+						end if
 					end if
 				end repeat
 			end try
 		end repeat
 		
 		if (count of relevanteEmails) = 0 then
-			display dialog "Keine E-Mails von ImmobilienScout gefunden." buttons {"OK"}
+			display dialog "Keine neuen E-Mails gefunden." & return & return & "(Filter: Letzte " & ignoriereEmailsVorTagen & " Tage)" buttons {"OK"}
 			return
 		end if
 		
-		-- Bestätigung mit Warnungen
+		-- Bestätigung
 		if verhalten is "send" then
 			set aktion to "⚠️ E-MAILS WERDEN DIREKT GESENDET!"
 		else
@@ -113,18 +89,18 @@ on run
 		end if
 		
 		if not echteDaten then
-			set empfaengerInfo to return & "🧪 TEST-MODUS: Alle E-Mails gehen an " & testEmail
+			set empfaengerInfo to return & "🧪 TEST-MODUS: Alle E-Mails an " & testEmail
 		else
 			set empfaengerInfo to ""
 		end if
 		
 		if originalLoeschen then
-			set loeschenInfo to return & "🗑️ Original-E-Mails werden gelöscht"
+			set loeschenInfo to return & "🗑️ Originale werden gelöscht"
 		else
 			set loeschenInfo to ""
 		end if
 		
-		set dialogText to "Es wurden " & (count of relevanteEmails) & " E-Mail(s) gefunden." & return & return & aktion & empfaengerInfo & loeschenInfo & return & return & "Fortfahren?"
+		set dialogText to "📨 " & (count of relevanteEmails) & " E-Mail(s) gefunden" & return & "(Letzte " & ignoriereEmailsVorTagen & " Tage)" & return & return & aktion & empfaengerInfo & loeschenInfo & return & return & "Fortfahren?"
 		set antwort to display dialog dialogText buttons {"Abbrechen", "Ja"} default button "Ja"
 		
 		if button returned of antwort = "Ja" then
@@ -133,36 +109,30 @@ on run
 					set erfolg to my verarbeiteEmail(eineEmail, templateMailbox, verhalten, echteDaten)
 					if erfolg then
 						set verarbeiteteEmails to verarbeiteteEmails + 1
-						
-						-- Original löschen wenn konfiguriert
 						if originalLoeschen then
 							delete eineEmail
 						end if
 					else
 						set fehlerAnzahl to fehlerAnzahl + 1
 					end if
-				on error errMsg
+				on error
 					set fehlerAnzahl to fehlerAnzahl + 1
 				end try
 			end repeat
 			
 			-- Erfolgsmeldung
 			if verhalten is "save" then
-				set meldung to "✅ " & (verarbeiteteEmails as string) & " Entwurf/Entwürfe erstellt!" & return & return & "Die Entwürfe findest du im Entwürfe-Ordner."
+				set meldung to "✅ " & verarbeiteteEmails & " Entwurf/Entwürfe erstellt!"
 			else
-				set meldung to "✅ " & (verarbeiteteEmails as string) & " E-Mail(s) gesendet!"
+				set meldung to "✅ " & verarbeiteteEmails & " E-Mail(s) gesendet!"
 			end if
 			
 			if fehlerAnzahl > 0 then
-				set meldung to meldung & return & return & "⚠️ " & (fehlerAnzahl as string) & " Fehler (kein Template gefunden oder ungültige E-Mail)"
+				set meldung to meldung & return & "⚠️ " & fehlerAnzahl & " Fehler"
 			end if
 			
 			if not echteDaten then
-				set meldung to meldung & return & "🧪 TEST-MODUS war aktiv"
-			end if
-			
-			if originalLoeschen and verarbeiteteEmails > 0 then
-				set meldung to meldung & return & "🗑️ " & (verarbeiteteEmails as string) & " Original-E-Mail(s) gelöscht"
+				set meldung to meldung & return & "🧪 TEST-MODUS aktiv"
 			end if
 			
 			display dialog meldung buttons {"OK"}
@@ -170,6 +140,141 @@ on run
 		
 	end tell
 end run
+
+-- ========================================
+-- CONFIG LADEN
+-- ========================================
+
+on ladeConfig()
+	try
+		-- Suche config.txt im gleichen Ordner wie das Script
+		set scriptPfad to path to me
+		tell application "Finder"
+			set scriptOrdner to container of scriptPfad as alias
+		end tell
+		
+		set configPfad to ((scriptOrdner as text) & "config.txt")
+		
+		-- Prüfe ob Config existiert
+		try
+			set configDatei to open for access file configPfad
+			set configInhalt to read configDatei
+			close access configDatei
+		on error
+			try
+				close access file configPfad
+			end try
+			-- Config existiert nicht → Erstelle Beispiel-Config
+			my erstelleBeispielConfig(configPfad)
+			return false
+		end try
+		
+		-- Parse Config
+		set AppleScript's text item delimiters to {return, linefeed}
+		set zeilen to paragraphs of configInhalt
+		
+		repeat with eineZeile in zeilen
+			set eineZeile to my trim(eineZeile)
+			
+			-- Überspringe Kommentare und leere Zeilen
+			if eineZeile does not start with "#" and eineZeile does not start with "//" and (length of eineZeile) > 0 then
+				
+				if eineZeile contains "=" then
+					set AppleScript's text item delimiters to "="
+					set teile to text items of eineZeile
+					if (count of teile) ≥ 2 then
+						set schluessel to my trim(item 1 of teile)
+						set wert to my trim(item 2 of teile)
+						
+						-- Setze Properties
+						if schluessel is "absenderEmail" then
+							set absenderEmail to wert
+						else if schluessel is "templatesOrdner" then
+							set templatesOrdner to wert
+						else if schluessel is "absenderAdresse" then
+							set absenderAdresse to wert
+						else if schluessel is "antwortBetreff" then
+							set antwortBetreff to wert
+						else if schluessel is "echteDaten" then
+							set echteDaten to (wert is "true")
+						else if schluessel is "testEmail" then
+							set testEmail to wert
+						else if schluessel is "verhalten" then
+							set verhalten to wert
+						else if schluessel is "originalLoeschen" then
+							set originalLoeschen to (wert is "true")
+						else if schluessel is "ignoriereEmailsVorTagen" then
+							try
+								set ignoriereEmailsVorTagen to wert as integer
+							end try
+						end if
+					end if
+					set AppleScript's text item delimiters to {return, linefeed}
+				end if
+			end if
+		end repeat
+		
+		set AppleScript's text item delimiters to ""
+		return true
+		
+	on error errMsg
+		display dialog "❌ Fehler beim Laden der Config:" & return & return & errMsg buttons {"OK"}
+		return false
+	end try
+end ladeConfig
+
+on erstelleBeispielConfig(configPfad)
+	set beispielConfig to "# ImmobilienScout E-Mail Processor - Konfiguration
+# Format: schluessel=wert (ohne Leerzeichen um das =)
+
+# 1. VON WELCHER E-MAIL KOMMEN DIE IMMOSCOUT-ANFRAGEN?
+absenderEmail=nicolosi@wohnwert.im
+
+# 2. NAME DES TEMPLATE-ORDNERS IN MAIL
+templatesOrdner=ImmoScout Templates
+
+# 3. DEINE ABSENDER-ADRESSE
+absenderAdresse=andreas.diehl@gmail.com
+
+# 4. BETREFF FÜR ANTWORTEN (Platzhalter: {REFERENZ_ID}, {SCOUT_ID}, etc.)
+antwortBetreff=Ihre Anfrage zu Objekt {REFERENZ_ID}
+
+# 5. TEST-MODUS (false = Test, true = Produktiv)
+echteDaten=false
+
+# 6. TEST-E-MAIL-ADRESSE (wird verwendet wenn echteDaten=false)
+testEmail=andreas.diehl@gmail.com
+
+# 7. VERHALTEN (save = Entwurf, send = Direkt senden)
+verhalten=save
+
+# 8. ORIGINALE LÖSCHEN? (false = Behalten, true = Löschen)
+originalLoeschen=false
+
+# 9. NUR E-MAILS DER LETZTEN X TAGE BEARBEITEN
+ignoriereEmailsVorTagen=30
+"
+	
+	try
+		set configDatei to open for access file configPfad with write permission
+		set eof configDatei to 0
+		write beispielConfig to configDatei
+		close access configDatei
+		
+		display dialog "⚙️ Config-Datei erstellt!" & return & return & "Bitte bearbeite:" & return & "config.txt" & return & return & "im gleichen Ordner wie das Script." & return & return & "Danach Script neu starten." buttons {"Config öffnen"} default button "Config öffnen"
+		
+		tell application "TextEdit"
+			activate
+			open file configPfad
+		end tell
+		
+	on error
+		try
+			close access file configPfad
+		end try
+		display dialog "❌ Konnte config.txt nicht erstellen!" buttons {"OK"}
+	end try
+end erstelleBeispielConfig
 
 -- ========================================
 -- E-MAIL VALIDIERUNG
@@ -180,7 +285,6 @@ on validiereEmail(emailAdresse)
 		return false
 	end if
 	
-	-- Prüfe grundlegendes Format: text@text.text
 	if emailAdresse does not contain "@" then
 		return false
 	end if
@@ -196,17 +300,14 @@ on validiereEmail(emailAdresse)
 	set lokalerTeil to item 1 of teile
 	set domainTeil to item 2 of teile
 	
-	-- Prüfe ob beide Teile vorhanden
 	if (length of lokalerTeil) < 1 or (length of domainTeil) < 3 then
 		return false
 	end if
 	
-	-- Prüfe ob Domain einen Punkt enthält
 	if domainTeil does not contain "." then
 		return false
 	end if
 	
-	-- Prüfe ob Domain nicht mit Punkt beginnt oder endet
 	if domainTeil starts with "." or domainTeil ends with "." then
 		return false
 	end if
@@ -215,23 +316,22 @@ on validiereEmail(emailAdresse)
 end validiereEmail
 
 on validiereKonfiguration()
-	tell application "Mail" to activate
-	
 	set fehlerListe to {}
 	
-	-- Validiere absenderEmail
 	if not my validiereEmail(absenderEmail) then
-		set end of fehlerListe to "❌ Überwachte Absender-Adresse: '" & absenderEmail & "'"
+		set end of fehlerListe to "❌ absenderEmail: '" & absenderEmail & "'"
 	end if
 	
-	-- Validiere absenderAdresse
 	if not my validiereEmail(absenderAdresse) then
-		set end of fehlerListe to "❌ Ihre Absender-Adresse: '" & absenderAdresse & "'"
+		set end of fehlerListe to "❌ absenderAdresse: '" & absenderAdresse & "'"
 	end if
 	
-	-- Validiere testEmail
 	if not my validiereEmail(testEmail) then
-		set end of fehlerListe to "❌ Test-E-Mail-Adresse: '" & testEmail & "'"
+		set end of fehlerListe to "❌ testEmail: '" & testEmail & "'"
+	end if
+	
+	if verhalten is not "save" and verhalten is not "send" then
+		set end of fehlerListe to "❌ verhalten muss 'save' oder 'send' sein"
 	end if
 	
 	if (count of fehlerListe) > 0 then
@@ -239,10 +339,7 @@ on validiereKonfiguration()
 		set fehlerText to fehlerListe as string
 		set AppleScript's text item delimiters to ""
 		
-		set dialogText to "❌ KONFIGURATIONSFEHLER: Ungültige E-Mail-Adressen!" & return & return & fehlerText & return & return & "Bitte korrigiere die E-Mail-Adressen im Script." & return & return & "Gültiges Format: name@domain.de"
-		
-		display dialog dialogText buttons {"OK"} with icon stop
-		
+		display dialog "❌ Ungültige Werte in config.txt:" & return & return & fehlerText buttons {"OK"}
 		return false
 	end if
 	
@@ -269,12 +366,10 @@ on verarbeiteEmail(dieEmail, templateMailbox, verhalten, echteDaten)
 		set interessentEmail to my extrahiereNaechsteZeile(emailInhalt, "E-Mail:")
 		set nachricht to my extrahiereNachricht(emailInhalt)
 		
-		-- Empfänger bestimmen: Echt oder Test
+		-- Empfänger bestimmen
 		if echteDaten then
-			-- Validiere Interessenten-Email vor Verwendung
 			if not my validiereEmail(interessentEmail) then
-				set dialogText to "⚠️ WARNUNG: Ungültige Empfänger-E-Mail!" & return & return & "Extrahierte E-Mail: '" & interessentEmail & "'" & return & return & "Diese E-Mail wird übersprungen."
-				display dialog dialogText buttons {"OK"} with icon caution
+				display dialog "⚠️ Ungültige E-Mail: '" & interessentEmail & "'" & return & "Wird übersprungen." buttons {"OK"}
 				return false
 			end if
 			set empfaengerEmail to interessentEmail
@@ -282,30 +377,24 @@ on verarbeiteEmail(dieEmail, templateMailbox, verhalten, echteDaten)
 			set empfaengerEmail to testEmail
 		end if
 		
-		-- Finde passendes Template
+		-- Finde Template
 		set templateNachricht to my findeTemplate(templateMailbox, scoutID)
 		
 		if templateNachricht is missing value then
-			-- Zeige Fehlermeldung mit verfügbaren Templates
 			set alleTemplates to messages of templateMailbox
 			set templateListe to ""
 			repeat with einTemplate in alleTemplates
 				set templateListe to templateListe & "  • " & (subject of einTemplate) & return
 			end repeat
 			
-			set dialogText to "❌ Kein passendes Template gefunden!" & return & return & "Scout-ID: " & scoutID & return & return & "Verfügbare Templates:" & return & templateListe & return & "Benötigt wird:" & return & "  • '" & scoutID & "' (für diese Scout-ID)" & return & "  ODER" & return & "  • 'default' (als Fallback)"
-			display dialog dialogText buttons {"OK"}
-			
+			display dialog "❌ Kein Template gefunden!" & return & return & "Scout-ID: " & scoutID & return & return & "Verfügbare:" & return & templateListe buttons {"OK"}
 			return false
 		end if
 		
-		-- Kopiere nur den BODY vom Template
 		set templateBody to content of templateNachricht
 		
-		-- Ersetze Platzhalter im Betreff (aus Config)
+		-- Ersetze Platzhalter
 		set neuerBetreff to my ersetzePlatzhalter(antwortBetreff, scoutID, titel, referenzID, anrede, vorname, nachname, interessentEmail, nachricht)
-		
-		-- Ersetze Platzhalter im Body (aus Template)
 		set neuerBody to my ersetzePlatzhalter(templateBody, scoutID, titel, referenzID, anrede, vorname, nachname, interessentEmail, nachricht)
 		
 		-- Erstelle Entwurf
@@ -317,7 +406,6 @@ on verarbeiteEmail(dieEmail, templateMailbox, verhalten, echteDaten)
 				set sender to absenderAdresse
 			end tell
 			
-			-- Senden oder speichern
 			if verhalten is "send" then
 				send neuerEntwurf
 			end if
@@ -325,8 +413,7 @@ on verarbeiteEmail(dieEmail, templateMailbox, verhalten, echteDaten)
 			return true
 			
 		on error errMsg
-			set dialogText to "❌ Fehler beim Erstellen des Entwurfs:" & return & return & errMsg
-			display dialog dialogText buttons {"OK"}
+			display dialog "❌ Fehler:" & return & return & errMsg buttons {"OK"}
 			return false
 		end try
 		
@@ -341,7 +428,6 @@ on findeTemplate(templateMailbox, scoutID)
 	tell application "Mail"
 		set alleTemplates to messages of templateMailbox
 		
-		-- Suche nach spezifischem Template: "162188779"
 		if scoutID is not "" then
 			repeat with einTemplate in alleTemplates
 				if (subject of einTemplate) is scoutID then
@@ -350,7 +436,6 @@ on findeTemplate(templateMailbox, scoutID)
 			end repeat
 		end if
 		
-		-- Fallback: "default"
 		repeat with einTemplate in alleTemplates
 			if (subject of einTemplate) is "default" then
 				return einTemplate
@@ -486,11 +571,9 @@ on ersetzText(derText, suchText, ersatzText)
 end ersetzText
 
 on extrahiereNachricht(inhalt)
-	-- Suche nach verschiedenen Varianten der Nachricht-Überschrift
 	set nachNachricht to ""
 	set nachrichtGefunden to false
 	
-	-- Variante 1: "Nachricht Ihrer Interessent:innen"
 	if inhalt contains "Nachricht Ihrer Interessent:innen" then
 		set AppleScript's text item delimiters to "Nachricht Ihrer Interessent:innen"
 		set teile to text items of inhalt
@@ -501,7 +584,6 @@ on extrahiereNachricht(inhalt)
 		set AppleScript's text item delimiters to ""
 	end if
 	
-	-- Variante 2: "Nachricht Ihrer Interessent"
 	if not nachrichtGefunden and inhalt contains "Nachricht Ihrer Interessent" then
 		set AppleScript's text item delimiters to "Nachricht Ihrer Interessent"
 		set teile to text items of inhalt
@@ -512,7 +594,6 @@ on extrahiereNachricht(inhalt)
 		set AppleScript's text item delimiters to ""
 	end if
 	
-	-- Variante 3: nur "Nachricht" als Fallback
 	if not nachrichtGefunden and inhalt contains "Nachricht" then
 		set AppleScript's text item delimiters to "Nachricht"
 		set teile to text items of inhalt
@@ -527,7 +608,6 @@ on extrahiereNachricht(inhalt)
 		return ""
 	end if
 	
-	-- Jetzt Text verarbeiten
 	set AppleScript's text item delimiters to {return, linefeed}
 	set zeilen to text items of nachNachricht
 	
@@ -537,7 +617,6 @@ on extrahiereNachricht(inhalt)
 	repeat with eineZeile in zeilen
 		set eineZeile to my trim(eineZeile)
 		
-		-- Überspringe Header und kurze Zeilen am Anfang
 		if not textBegonnen then
 			if (length of eineZeile) > 15 and not (eineZeile contains "Von:") and not (eineZeile contains "Betreff:") and not (eineZeile contains "Datum:") and not (eineZeile contains "Nachrichtenverlauf") then
 				set textBegonnen to true
@@ -545,7 +624,6 @@ on extrahiereNachricht(inhalt)
 		end if
 		
 		if textBegonnen then
-			-- Stoppe bei Signatur oder Nachrichtenverlauf
 			if eineZeile contains "Mit freundlichen Grüßen" or eineZeile contains "Mit freundlichen Gr" or eineZeile contains "Beste Grüße" or eineZeile contains "Viele Grüße" or eineZeile contains "Nachrichtenverlauf" then
 				if nachrichtText is not "" and (eineZeile contains "Mit freundlichen" or eineZeile contains "Beste Grüße" or eineZeile contains "Viele Grüße") then
 					set nachrichtText to nachrichtText & return & return & eineZeile
@@ -553,7 +631,6 @@ on extrahiereNachricht(inhalt)
 				exit repeat
 			end if
 			
-			-- Füge Zeile hinzu
 			if (length of eineZeile) > 0 then
 				if nachrichtText is not "" then
 					set nachrichtText to nachrichtText & return
