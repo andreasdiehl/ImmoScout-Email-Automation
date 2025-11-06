@@ -2,26 +2,27 @@
 
 Automatische Antworten auf ImmobilienScout24-Anfragen mit personalisierten Templates.
 
-## 🚀 Quick Start (5 Minuten Setup)
-
-### 1️⃣ Script herunterladen
+### 1️⃣ Script herunterladen oder aktualisieren
 - Gehe zu: [Script.applescript](https://github.com/andreasdiehl/ImmoScout-Email-Automation/blob/main/Script.applescript)
 - Klick **"Dowbload"** (oben rechts)
 ![Donwload Script](https://github.com/user-attachments/assets/39390e42-fba4-4d4f-82df-34c60018eced)
+- Richte dir einen Ordner ein (egal wo) z.B. in `Dokumente/Scripts/ und lege das Script dort ab bzw. ersetze das alte Script ersatzlos
 
-- Speicher es z.B. in `Dokumente/Scripts/`
-
-### 2️⃣ Script konfigurieren
-- Öffne das Scriptim **Script-Editor** (Doppelklick oder rechte Maustaste "öffnen mit")
-- Passe **Zeilen 24-51** an:
+### 2️⃣ Script herunterladen & konfigurieren
+- Gehe zu: [Script.applescript](https://github.com/andreasdiehl/ImmoScout-Email-Automation/blob/main/Script.applescript)
+- Klick **"Dowbload"** (oben rechts)
+- Öffne die Config Datei z.B. **Script-Editor** oder in einem beliebigen Text Editor (Doppelklick oder rechte Maustaste "öffnen mit")
+- Passe die folegnden Wertean:
 
 ```applescript
 property absenderEmail : "deine@immoscout-email.de"      -- Von welcher Adresse kommen die Anfragen?
-property templatesOrdner : "ImmoScout Templates"          -- Name des Template-Ordners in Mail
+property templatesOrdner : "ImmoScout Templates"         -- Name des Template-Ordners in Mail
 property absenderAdresse : "dein@email.de"               -- Deine Absender-Adresse
 property testEmail : "dein@email.de"                     -- Für Test-Modus
+property echteDaten : true / false                       -- Alle E-Mails gehen an deine testEmail
+property verhalten : save / send                         -- Erstellt nur Entwürfe (save) oder sendet die Nachricht direkt (send)
 ```
-- **Speichern:** ⌘S das Script nach deinen Anpassungen
+- **Speichern:** ⌘S die Config Script nach deinen Anpassungen und lege die Config in den gleichen Ordner wie das Script
 
 
 ### 3️⃣ Templates-Ordner erstellen
@@ -81,31 +82,6 @@ Ihr Immobilien-Team
 5. ✅ Entwürfe sind im **Entwürfe-Ordner** in Mail
 6. Prüfe die Entwürfe und versende sie
 
-**Das war's!** ⏱️ Dauert 30 Sekunden.
-
-## ⚙️ Einstellungen
-
-### Test-Modus (Standard)
-```applescript
-property echteDaten : false  -- Alle E-Mails gehen an deine Test-Adresse
-property verhalten : "save"   -- Erstellt nur Entwürfe
-```
-→ **Sicher zum Testen!** Keine echten E-Mails werden versendet.
-
-### Produktiv-Modus
-```applescript
-property echteDaten : true   -- Echte Empfänger-Adressen verwenden
-property verhalten : "save"   -- Weiterhin als Entwurf (empfohlen)
-```
-→ Entwürfe gehen an echte Interessenten, aber du prüfst sie noch.
-
-### Voll-Automatisch (Vorsicht!)
-```applescript
-property echteDaten : true
-property verhalten : "send"   -- Direkt versenden!
-```
-→ ⚠️ E-Mails werden **sofort versendet** ohne Prüfung!
-
 ## 🔧 Troubleshooting
 
 ### "Templates-Ordner nicht gefunden"
@@ -123,48 +99,6 @@ property verhalten : "send"   -- Direkt versenden!
 ### Nachricht wird nicht korrekt extrahiert
 - Das Script sucht nach "Nachricht Ihrer Interessent:innen"
 - Falls ImmobilienScout das Format ändert: Melde es dem Programmierer
-
-## 🔄 Updates
-
-### Neue Version installieren:
-1. Lade neue Version von GitHub
-2. **Kopiere deine Config** (Zeilen 24-51) aus dem alten Script
-3. **Füge sie in das neue Script** ein
-4. Speichern & fertig!
-
-Deine Templates bleiben unverändert! ✅
-
-## 💡 Best Practices
-
-### Template-Strategie
-- ✅ **Ein `default` Template** für Standard-Anfragen
-- ✅ **Spezielle Templates** nur für besondere Objekte
-- ✅ **Persönlich bleiben:** Nutze `{NACHRICHT}` um auf Fragen einzugehen
-
-### Workflow-Empfehlung
-- **Woche 1-2:** Test-Modus, alle Entwürfe prüfen
-- **Ab Woche 3:** Produktiv-Modus, Entwürfe schnell durchgehen
-- **Optional:** Vertrauenswürdige Templates auf Direktversand umstellen
-
-### Zeitsparend
-- Morgens einmal Script starten: 30 Sekunden
-- Entwürfe durchsehen: 2 Minuten
-- **Zeitersparnis:** ~20 Minuten pro Tag! ⏰
-
-## 📋 Checkliste für den Start
-
-- [ ] Script heruntergeladen & konfiguriert
-- [ ] Templates-Ordner in Mail erstellt
-- [ ] Mindestens ein `default` Template erstellt
-- [ ] Test-Modus aktiv (echteDaten = false)
-- [ ] Script einmal getestet mit Test-Anfrage
-- [ ] Entwurf geprüft → Alles korrekt?
-- [ ] Produktiv-Modus aktivieren
-- [ ] Fertig! 🎉
-
-## ❓ Support
-
-Bei Fragen oder Problemen: Wende dich an deinen Programmierer.
 
 ---
 
