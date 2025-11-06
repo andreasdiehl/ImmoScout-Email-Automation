@@ -72,10 +72,13 @@ Ihr Immobilien-Team
 2. Script prüft deinen Posteingang nach neuen ImmobilienScout-Anfragen
 3. Dialog: *"5 E-Mail(s) gefunden → Fortfahren?"*
 4. **Klick "Ja"**
-5. ✅ Entwürfe sind im **Entwürfe-Ordner** in Mail
-6. Prüfe die Entwürfe und versende sie
+5. Script macht seine und deine Arbeit
+✅ Entwürfe sind im **Entwürfe-Ordner** in Mail oder sind versendet
+✅ Eingehende Nachrichten wurden sofern konfiguriert gelöscht
 
-## 🔧 Troubleshooting
+## ❌ Troubleshooting
+
+Hier ein paar gängige Fehlermeldungen und Ursachen.
 
 ### "Templates-Ordner nicht gefunden"
 - Ordner muss unter **"Auf meinem Mac"** liegen (nicht in einem E-Mail-Account)
@@ -86,7 +89,7 @@ Ihr Immobilien-Team
 - Oder erstelle ein spezifisches Template mit der Scout-ID
 
 ### "Ungültige E-Mail-Adresse"
-- Prüfe die Config (Zeilen 24-51)
+- Prüfe die Config auf ordentliche E-Mail Formate
 - Format: `name@domain.de`
 
 ### Nachricht wird nicht korrekt extrahiert
