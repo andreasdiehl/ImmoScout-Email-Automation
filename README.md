@@ -95,6 +95,5 @@ Ihr Immobilien-Team
 
 ---
 
-**Version:** 1.0.0  
 **Lizenz:** MIT  
-**Hinweis:** Inoffizielles Tool, keine Verbindung zu ImmobilienScout24 GmbH
+**Hinweis:** Inoffizielles Tool, keine Verbindung zu ImmobilienScout24
