@@ -1,8 +1,3 @@
--- =====================================================
--- ImmobilienScout E-Mail Processor
--- Mit externer Config und Datum-Filter
--- =====================================================
-
 property scriptVersion : "1.1.0"
 
 -- ========================================
