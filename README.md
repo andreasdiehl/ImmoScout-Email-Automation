@@ -4,7 +4,7 @@ Dieses Script ist für Apple User die mit Mac Mail arbeiten. Das Script bereitet
 
 ### 1️⃣ Script herunterladen oder aktualisieren
 - Gehe zu: [Script.applescript](https://github.com/andreasdiehl/ImmoScout-Email-Automation/blob/main/Script.applescript)
-- Klick **"Dowbload"** (oben rechts)
+- Klick **"Download"** (oben rechts)
 ![Donwload Script](https://github.com/user-attachments/assets/39390e42-fba4-4d4f-82df-34c60018eced)
 - Richte einen Ordner auf dem Rechner ein (egal wo) z.B. in `Dokumente/Scripts/ und lege das Script dort ab bzw. ersetze ein bestehendes Script ersatzlos
 
