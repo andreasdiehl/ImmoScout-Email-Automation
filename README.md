@@ -29,12 +29,12 @@ Die Konfiguration liegt sicher abgetrennt von der App unter:
 
 **Du musst diese Datei einmalig anlegen:**
 
-1. Terminal: Ordner erstellen
+1. Terminal öffnen & in den Ordner navigieren.
+2. Führe aus:
    ```bash
-   mkdir -p "$HOME/Library/Application Support/ImmoScout-Automation"
+   ./scripts/setup_app.sh
    ```
-2. Finder: `config/config.template.txt` in diesen neuen Ordner kopieren.
-3. Datei in `config.txt` umbenennen und bearbeiten.
+   Das baut die App frisch aus dem Code und installiert sie bei dir.
 
 Ohne diese Datei startet die App nicht!
 

@@ -46,35 +46,44 @@ on run
 		set latestVersion to (do shell script "curl -s " & updateURL)
 		
 		if my trim(latestVersion) > scriptVersion then
-			set antwort to display dialog "🚀 Neue Version verfügbar: " & latestVersion & return & "Installiert: " & scriptVersion & return & return & "Die App wird neu gestartet." buttons {"Später", "Jetzt Updaten"} default button "Jetzt Updaten"
-			
-			if button returned of result is "Jetzt Updaten" then
-				my logLine("UPDATE | Starte Auto-Update auf v" & latestVersion)
-				
-				-- 1. Pfade definieren
-				set zipDownloadUrl to "https://github.com/andreasdiehl/ImmoScout-Email-Automation/releases/latest/download/ImmoScoutAutomation.zip"
-				set zipPfad to "/tmp/ImmoScoutUpdate.zip"
-				set meineAppPfad to (POSIX path of (path to me))
-				
-				-- 2. Updater Script finden (liegt in Resources)
+			-- Prüfen ob wir als App laufen (Updater verfügbar?)
+			set updaterVerfuegbar to false
+			try
 				set updaterScriptPfad to (POSIX path of (path to resource "updater.sh"))
+				set updaterVerfuegbar to true
+			on error
+				set updaterVerfuegbar to false
+			end try
+			
+			if updaterVerfuegbar then
+				-- APP MODUS: Auto-Update
+				set antwort to display dialog "🚀 Neue Version verfügbar: " & latestVersion & return & "Installiert: " & scriptVersion & return & return & "Die App wird neu gestartet." buttons {"Später", "Jetzt Updaten"} default button "Jetzt Updaten"
 				
-				-- 3. Download
-				do shell script "curl -L -o " & quoted form of zipPfad & " " & zipDownloadUrl
-				
-				-- 4. Updater starten (und App beenden)
-				-- Wir übergeben: ZIP_PFAD APP_PFAD PID
-				set myPID to (do shell script "echo $$") -- PID der Shell (nicht robust für App), besser: system info
-				set mysysteminfo to system info
-				-- PID via Shell holen ist sicherer für AppleScript Apps
-				set myPID to (do shell script "ps -p $$ -o ppid=")
-				
-				-- Updater detached starten
-				do shell script "sh " & quoted form of updaterScriptPfad & " " & quoted form of zipPfad & " " & quoted form of meineAppPfad & " " & myPID & " > /dev/null 2>&1 &"
-				
-				-- 5. Beenden
-				quit
-				return
+				if button returned of result is "Jetzt Updaten" then
+					my logLine("UPDATE | Starte Auto-Update auf v" & latestVersion)
+					
+					-- 1. Pfade definieren
+					set zipDownloadUrl to "https://github.com/andreasdiehl/ImmoScout-Email-Automation/releases/latest/download/ImmoScoutAutomation.zip"
+					set zipPfad to "/tmp/ImmoScoutUpdate.zip"
+					set meineAppPfad to (POSIX path of (path to me))
+					
+					-- 2. Download
+					do shell script "curl -L -o " & quoted form of zipPfad & " " & zipDownloadUrl
+					
+					-- 3. Updater starten
+					set myPID to (do shell script "ps -p $$ -o ppid=")
+					do shell script "sh " & quoted form of updaterScriptPfad & " " & quoted form of zipPfad & " " & quoted form of meineAppPfad & " " & myPID & " > /dev/null 2>&1 &"
+					
+					quit
+					return
+				end if
+			else
+				-- SCRIPT MODUS: Manuell
+				display dialog "🚀 Neue Version verfügbar: " & latestVersion & return & "Installiert: " & scriptVersion & return & return & "(Auto-Update nur in App verfügbar)" buttons {"Später", "Zum Download"} default button "Zum Download"
+				if button returned of result is "Zum Download" then
+					open location "https://github.com/andreasdiehl/ImmoScout-Email-Automation"
+					return
+				end if
 			end if
 		end if
 	on error errMsg
