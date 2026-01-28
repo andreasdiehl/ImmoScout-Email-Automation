@@ -25,3 +25,6 @@
 Bug Fixes.md
 config*
 *_utf8.applescript
+.DS_Store
+build/
+*.log
