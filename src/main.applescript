@@ -240,38 +240,66 @@ end run
 
 on ladeConfig()
 	try
-		-- Config Pfad definieren (Standard macOS Application Support)
-		set appSupportOrdner to (path to application support from user domain as text)
-		set meinOrdnerName to "ImmoScout-Automation"
-		set configDateiname to "config.txt"
+		set configPfad to ""
+		set nutzeLokaleConfig to false
 		
-		set configOrdnerPfad to appSupportOrdner & meinOrdnerName & ":"
-		set configPfad to configOrdnerPfad & configDateiname
-		
-		-- Prüfe ob Config existiert
+		-- 1. Check: Sind wir im Script-Modus (Development)?
 		tell application "Finder"
-			if not (exists file configPfad) then
-				set dText to "❌ Konfigurationsdatei fehlt!" & return & return & "Ich habe versucht den Ordner zu öffnen." & return & "Bitte kopiere 'config.txt' dort hinein."
-				
-				set antwort to display dialog dText buttons {"Pfad kopieren", "OK", "Gehe zu Ordner..."} default button "Gehe zu Ordner..." with icon stop
-				
-				if button returned of antwort is "Pfad kopieren" then
-					set the clipboard to (POSIX path of configOrdnerPfad)
-					display dialog "Pfad kopiert! Du kannst ihn im Finder mit ⇧⌘G (Gehe zu Ordner) nutzen." buttons {"OK"}
-				else if button returned of antwort is "Gehe zu Ordner..." then
-					-- Versuche Ordner zu öffnen, oder Parent falls nicht existiert
-					if (exists folder configOrdnerPfad) then
-						open folder configOrdnerPfad
-					else
-						open folder appSupportOrdner
+			set extensionName to ""
+			try
+				set extensionName to name extension of (path to me)
+			end try
+			
+			if extensionName is not "app" then
+				-- Wir laufen als Script -> Suche config.txt im Projekt-Root (../config.txt)
+				try
+					set srcOrdner to container of (path to me)
+					set projektOrdner to container of srcOrdner
+					set lokaleConfigDatei to file "config.txt" of projektOrdner
+					
+					if exists lokaleConfigDatei then
+						set configPfad to (lokaleConfigDatei as text)
+						set nutzeLokaleConfig to true
+						my logLine("INFO | Nutze lokale Dev-Config: " & configPfad)
 					end if
-				end if
-				
-				return false
+				on error
+					-- Ordnerstruktur passt nicht (z.B. Script kopiert), fallback auf Standard
+				end try
 			end if
 		end tell
 		
-		-- Config lesen
+		-- 2. Fallback: Standard Application Support (für App & wenn lokal fehlt)
+		if not nutzeLokaleConfig then
+			set appSupportOrdner to (path to application support from user domain as text)
+			set meinOrdnerName to "ImmoScout-Automation"
+			set configDateiname to "config.txt"
+			
+			set configOrdnerPfad to appSupportOrdner & meinOrdnerName & ":"
+			set configPfad to configOrdnerPfad & configDateiname
+			
+			-- Prüfung für App Support Pfad
+			tell application "Finder"
+				if not (exists file configPfad) then
+					set dText to "❌ Konfigurationsdatei fehlt!" & return & return & "Ich habe versucht den Ordner zu öffnen." & return & "Bitte kopiere 'config.txt' dort hinein."
+					
+					set antwort to display dialog dText buttons {"Pfad kopieren", "OK", "Gehe zu Ordner..."} default button "Gehe zu Ordner..." with icon stop
+					
+					if button returned of antwort is "Pfad kopieren" then
+						set the clipboard to (POSIX path of configOrdnerPfad)
+						display dialog "Pfad kopiert! Du kannst ihn im Finder mit ⇧⌘G (Gehe zu Ordner) nutzen." buttons {"OK"}
+					else if button returned of antwort is "Gehe zu Ordner..." then
+						if (exists folder configOrdnerPfad) then
+							open folder configOrdnerPfad
+						else
+							open folder appSupportOrdner
+						end if
+					end if
+					return false
+				end if
+			end tell
+		end if
+		
+		-- 3. Config lesen
 		try
 			set configDatei to open for access file configPfad
 			set configInhalt to read configDatei as «class utf8»
@@ -280,7 +308,7 @@ on ladeConfig()
 			try
 				close access file configPfad
 			end try
-			display dialog "❌ Fehler beim Lesen der " & configDateiname & "." & return & return & "Details: " & errMsg buttons {"OK"}
+			display dialog "❌ Fehler beim Lesen der Config." & return & return & "Details: " & errMsg buttons {"OK"}
 			return false
 		end try
 		
@@ -290,18 +318,13 @@ on ladeConfig()
 		
 		repeat with eineZeile in zeilen
 			set eineZeile to my trim(eineZeile)
-			
-			-- Überspringe Kommentare und leere Zeilen
 			if eineZeile does not start with "#" and eineZeile does not start with "//" and (length of eineZeile) > 0 then
-				
 				if eineZeile contains "=" then
 					set AppleScript's text item delimiters to "="
 					set teile to text items of eineZeile
 					if (count of teile) ≥ 2 then
 						set schluessel to my trim(item 1 of teile)
 						set wert to my trim(item 2 of teile)
-						
-						-- Setze Properties
 						if schluessel is "absenderEmail" then
 							set absenderEmail to wert
 						else if schluessel is "templatesOrdner" then
@@ -330,10 +353,8 @@ on ladeConfig()
 				end if
 			end if
 		end repeat
-		
 		set AppleScript's text item delimiters to ""
 		return true
-		
 	on error errMsg
 		display dialog "❌ Unerwarteter Fehler im Config-Loader." & return & return & "Details: " & errMsg buttons {"OK"}
 		return false
