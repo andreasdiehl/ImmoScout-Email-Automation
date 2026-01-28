@@ -20,3 +20,7 @@
 .vscode/
 .idea/
 *.swp
+
+# Local Project Files
+Bug Fixes.md
+config*
