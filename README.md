@@ -8,16 +8,19 @@ Eine lokale macOS App zur automatisierten Beantwortung von ImmobilienScout24-Anf
 - `scripts/` - Build-Skripte
 - `config/` - Vorlagen für die Konfiguration
 
-## 🚀 Installation & Update
+## 📦 Installation (für End-Nutzer)
 
-Einfach das Installations-Skript ausführen. Es baut die App und schiebt sie in den Programme-Ordner.
-
-1. Terminal öffnen
-2. Navigiere in diesen Ordner (`cd ~/Desktop/ImmoScout` oder wo auch immer er liegt)
-3. Führe aus:
+1. **Download**: Lade die aktuelle Version unter "Releases" rechts auf dieser Seite herunter (`ImmoScoutAutomation.zip`).
+2. **Installieren**: Entpacke die Zip und ziehe die App in deinen **Programme** Ordner.
+3. **Konfiguration**:
+   Erstelle einmalig den Ordner für deine Einstellungen:
    ```bash
-   ./install.sh
+   mkdir -p "$HOME/Library/Application Support/ImmoScout-Automation"
    ```
+   Lade die `config.template.txt` herunter, speichere sie in diesem Ordner als `config.txt` und trage deine Daten ein.
+4. **Starten**: Einfach Doppelklick auf die App.
+
+Die App prüft beim Start automatisch auf Updates und meldet sich, wenn eine neue Version verfügbar ist.
 
 ## ⚙️ Konfiguration (Wichtig!)
 
