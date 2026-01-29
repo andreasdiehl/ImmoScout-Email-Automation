@@ -18,15 +18,9 @@ property testEmail : ""
 property verhalten : "save"
 property originalLoeschen : false
 property ignoriereEmailsVorTagen : 30
-property logDateiName : "immoscout_processor.log"
 property loggingAktiv : true
-
--- Scout-ID Filter (leer = alle, sonst Komma-Liste)
+property aktuellerLogPfad : ""
 property scoutIds : ""
-
--- ========================================
--- NEU: Fehler-Handling
--- ========================================
 property letzteFehlermeldung : ""
 property fehlerDetails : {}
 
@@ -38,58 +32,13 @@ on run
 	set letzteFehlermeldung to ""
 	set fehlerDetails to {}
 	
-	my logLine("=== Run gestartet | Version " & scriptVersion & " ===")
-
-	-- NEU: AUTO-UPDATE
-	try
-		set updateURL to "https://raw.githubusercontent.com/andreasdiehl/ImmoScout-Email-Automation/main/version.txt"
-		set latestVersion to (do shell script "curl -s " & updateURL)
-		
-		if my trim(latestVersion) > scriptVersion then
-			-- Prüfen ob wir als App laufen (Updater verfügbar?)
-			set updaterVerfuegbar to false
-			try
-				set updaterScriptPfad to (POSIX path of (path to resource "updater.sh"))
-				set updaterVerfuegbar to true
-			on error
-				set updaterVerfuegbar to false
-			end try
-			
-			if updaterVerfuegbar then
-				-- APP MODUS: Auto-Update
-				set antwort to display dialog "🚀 Neue Version verfügbar: " & latestVersion & return & "Installiert: " & scriptVersion & return & return & "Die App wird neu gestartet." buttons {"Später", "Jetzt Updaten"} default button "Jetzt Updaten"
-				
-				if button returned of result is "Jetzt Updaten" then
-					my logLine("UPDATE | Starte Auto-Update auf v" & latestVersion)
-					
-					-- 1. Pfade definieren
-					set zipDownloadUrl to "https://github.com/andreasdiehl/ImmoScout-Email-Automation/releases/latest/download/ImmoScoutAutomation.zip"
-					set zipPfad to "/tmp/ImmoScoutUpdate.zip"
-					set meineAppPfad to (POSIX path of (path to me))
-					
-					-- 2. Download
-					do shell script "curl -L -o " & quoted form of zipPfad & " " & zipDownloadUrl
-					
-					-- 3. Updater starten
-					set myPID to (do shell script "ps -p $$ -o ppid=")
-					do shell script "sh " & quoted form of updaterScriptPfad & " " & quoted form of zipPfad & " " & quoted form of meineAppPfad & " " & myPID & " > /dev/null 2>&1 &"
-					
-					quit
-					return
-				end if
-			else
-				-- SCRIPT MODUS: Manuell
-				display dialog "🚀 Neue Version verfügbar: " & latestVersion & return & "Installiert: " & scriptVersion & return & return & "(Auto-Update nur in App verfügbar)" buttons {"Später", "Zum Download"} default button "Zum Download"
-				if button returned of result is "Zum Download" then
-					open location "https://github.com/andreasdiehl/ImmoScout-Email-Automation"
-					return
-				end if
-			end if
-		end if
-	on error errMsg
-		my logLine("WARNUNG | Update-Check fehlgeschlagen | " & errMsg)
-	end try
+	-- Log initialisieren und alte Logs aufräumen
+	my initializeLog()
+	my cleanupOldLogs()
 	
+	my logLine("=== Run gestartet | Version " & scriptVersion & " ===")
+	
+
 	-- LADE CONFIG
 	set configErfolg to my ladeConfig()
 	if not configErfolg then
@@ -110,7 +59,8 @@ on run
 		set verarbeiteteEmails to 0
 		set fehlerAnzahl to 0
 		set relevanteEmails to {}
-		set geseheneBetreffe to {}
+		set geseheneMessageIDs to {}
+		set gesamtGefundeneEmails to 0
 		
 		-- Berechne Stichtag
 		set stichtag to (current date) - (ignoriereEmailsVorTagen * days)
@@ -127,22 +77,39 @@ on run
 		-- Suche E-Mails von ImmobilienScout
 		repeat with einAccount in accounts
 			try
+				set accountName to name of einAccount
+				my logLine("DEBUG | Durchsuche Account: " & accountName)
+				
 				set posteingang to mailbox "INBOX" of einAccount
+				my logLine("DEBUG | INBOX gefunden in: " & accountName)
+				
 				set gefundeneNachrichten to (messages of posteingang whose sender contains absenderEmail)
+				set anzahlGefunden to count of gefundeneNachrichten
+				set gesamtGefundeneEmails to gesamtGefundeneEmails + anzahlGefunden
+				my logLine("DEBUG | " & anzahlGefunden & " Nachrichten gefunden in: " & accountName)
 				
 				repeat with eineNachricht in gefundeneNachrichten
+					my logLine("DEBUG | Verarbeite Nachricht...")
 					set emailDatum to date received of eineNachricht
+					my logLine("DEBUG | Datum erhalten: " & emailDatum)
 					
 					-- Nur E-Mails nach Stichtag
 					if emailDatum ≥ stichtag then
-						set derBetreff to subject of eineNachricht
-						if derBetreff is not in geseheneBetreffe then
+						my logLine("DEBUG | Email ist nach Stichtag - hole Message-ID")
+						-- Verwende Message-ID für zuverlässige Deduplizierung
+						set messageID to message id of eineNachricht
+						my logLine("DEBUG | Message-ID erhalten: " & messageID)
+						if messageID is not in geseheneMessageIDs then
 							set end of relevanteEmails to eineNachricht
-							set end of geseheneBetreffe to derBetreff
+							set end of geseheneMessageIDs to messageID
+							my logLine("DEBUG | Email zur Liste hinzugefügt")
+						else
+							my logLine("DEBUG | Email bereits gesehen (Duplikat)")
 						end if
 					end if
 				end repeat
 			on error errMsg
+				my logLine("FEHLER | Fehler beim Durchsuchen von Account: " & accountName & " | " & errMsg)
 				set end of fehlerDetails to "❌ Fehler beim Durchsuchen eines Accounts: " & errMsg
 			end try
 		end repeat
@@ -152,26 +119,35 @@ on run
 			return
 		end if
 		
-		-- Bestätigung
+		-- Bestätigung mit vollständigem Config-Status
 		if verhalten is "send" then
 			set aktion to "⚠️ E-MAILS WERDEN DIREKT GESENDET!"
 		else
-			set aktion to "Entwürfe werden erstellt"
+			set aktion to "📝 Entwürfe werden erstellt"
 		end if
 		
 		if not echteDaten then
-			set empfaengerInfo to return & "🧪 TEST-MODUS: Alle E-Mails an " & testEmail
+			set modus to "🧪 TEST-MODUS: Alle E-Mails an " & testEmail
 		else
-			set empfaengerInfo to ""
+			set modus to "✅ PRODUKTIV-MODUS: An echte Empfänger"
 		end if
 		
 		if originalLoeschen then
-			set loeschenInfo to return & "🗑️ Originale werden gelöscht"
+			set loeschenInfo to "🗑️ Originale löschen: JA"
 		else
-			set loeschenInfo to ""
+			set loeschenInfo to "📥 Originale löschen: NEIN"
 		end if
 		
-		set dialogText to "📨 " & (count of relevanteEmails) & " E-Mail(s) gefunden" & return & "(Letzte " & ignoriereEmailsVorTagen & " Tage)" & return & return & aktion & empfaengerInfo & loeschenInfo & return & return & "Fortfahren?"
+		set zeitfilter to "📅 Zeitfilter: Letzte " & ignoriereEmailsVorTagen & " Tage"
+		
+		if my trim(scoutIds) is "" then
+			set scoutFilter to "🏠 Scout-IDs: Alle"
+		else
+			set scoutFilter to "🏠 Scout-IDs: " & scoutIds
+		end if
+		
+		set anzahlRelevant to count of relevanteEmails
+		set dialogText to "📨 " & gesamtGefundeneEmails & " E-Mail(s) gefunden, " & anzahlRelevant & " zur Verarbeitung" & return & return & "⚙️ AKTIVE EINSTELLUNGEN:" & return & modus & return & aktion & return & loeschenInfo & return & zeitfilter & return & scoutFilter & return & return & "Fortfahren?"
 		set antwort to display dialog dialogText buttons {"Abbrechen", "Ja"} default button "Ja"
 		
 		if button returned of antwort = "Ja" then
@@ -203,7 +179,7 @@ on run
 				end try
 			end repeat
 			
-			-- Erfolgsmeldung
+			-- Erfolgsmeldung mit Log-Zugriff
 			if verhalten is "save" then
 				set meldung to "✅ " & verarbeiteteEmails & " Entwurf/Entwürfe erstellt!"
 			else
@@ -218,17 +194,24 @@ on run
 				set meldung to meldung & return & "🧪 TEST-MODUS aktiv"
 			end if
 			
-			display dialog meldung buttons {"OK"}
+			-- Dialog mit Log-Button
+			set dialogButtons to {"OK", "📋 Log anzeigen"}
+			set antwortFinal to display dialog meldung buttons dialogButtons default button "OK"
 			
-			-- Fehler-Details anzeigen (falls vorhanden)
-			if (count of fehlerDetails) > 0 then
-				set AppleScript's text item delimiters to return & return
-				set detailText to fehlerDetails as string
-				set AppleScript's text item delimiters to ""
-				
-				-- Hinweis: Dialog ist begrenzt, aber für “sprechende Fehler” reicht das i.d.R.
-				display dialog "Details zu Problemen:" & return & return & detailText buttons {"OK"}
+			-- Log öffnen wenn gewünscht (in TextEdit zum Bearbeiten/Löschen)
+			if button returned of antwortFinal is "📋 Log anzeigen" then
+				if aktuellerLogPfad is not "" then
+					try
+						set logDateiPfad to POSIX path of aktuellerLogPfad
+						do shell script "open -a TextEdit " & quoted form of logDateiPfad
+					on error
+						display dialog "❌ Log-Datei konnte nicht geöffnet werden." & return & return & "Pfad: " & aktuellerLogPfad buttons {"OK"}
+					end try
+				else
+					display dialog "ℹ️ Keine Log-Datei verfügbar." & return & return & "Die Log-Datei wurde möglicherweise nicht erstellt." buttons {"OK"}
+				end if
 			end if
+			
 		end if
 		
 	end tell
@@ -240,66 +223,42 @@ end run
 
 on ladeConfig()
 	try
-		set configPfad to ""
-		set nutzeLokaleConfig to false
+		-- 1. Get current username
+		set username to do shell script "whoami"
+		my logLine("INFO | Username: " & username)
 		
-		-- 1. Check: Sind wir im Script-Modus (Development)?
+		-- 2. Find app/script location
+		set appPfad to path to me
 		tell application "Finder"
-			set extensionName to ""
-			try
-				set extensionName to name extension of (path to me)
-			end try
-			
-			if extensionName is not "app" then
-				-- Wir laufen als Script -> Suche config.txt im Projekt-Root (../config.txt)
-				try
-					set srcOrdner to container of (path to me)
-					set projektOrdner to container of srcOrdner
-					set lokaleConfigDatei to file "config.txt" of projektOrdner
-					
-					if exists lokaleConfigDatei then
-						set configPfad to (lokaleConfigDatei as text)
-						set nutzeLokaleConfig to true
-						my logLine("INFO | Nutze lokale Dev-Config: " & configPfad)
-					end if
-				on error
-					-- Ordnerstruktur passt nicht (z.B. Script kopiert), fallback auf Standard
-				end try
+			set parentOrdner to (container of appPfad) as text
+		end tell
+		my logLine("INFO | App location: " & parentOrdner)
+		
+		-- 3. Build config path: ../config/{username}.txt
+		set configPfad to parentOrdner & "config:" & username & ".txt"
+		my logLine("INFO | Looking for config: " & configPfad)
+		
+		-- 4. Check if config exists
+		tell application "Finder"
+			if not (exists file configPfad) then
+				set dText to "❌ Konfigurationsdatei fehlt!" & return & return & "Erwartet: config/" & username & ".txt" & return & return & "Bitte erstelle diese Datei im config-Ordner."
+				
+				set antwort to display dialog dText buttons {"Ordner öffnen", "Abbrechen"} default button "Ordner öffnen" with icon stop
+				
+				if button returned of antwort is "Ordner öffnen" then
+					set configOrdner to (parentOrdner as text) & "config:"
+					try
+						open folder configOrdner
+					on error
+						-- Config folder doesn't exist, open parent
+						open parentOrdner
+					end try
+				end if
+				return false
 			end if
 		end tell
 		
-		-- 2. Fallback: Standard Application Support (für App & wenn lokal fehlt)
-		if not nutzeLokaleConfig then
-			set appSupportOrdner to (path to application support from user domain as text)
-			set meinOrdnerName to "ImmoScout-Automation"
-			set configDateiname to "config.txt"
-			
-			set configOrdnerPfad to appSupportOrdner & meinOrdnerName & ":"
-			set configPfad to configOrdnerPfad & configDateiname
-			
-			-- Prüfung für App Support Pfad
-			tell application "Finder"
-				if not (exists file configPfad) then
-					set dText to "❌ Konfigurationsdatei fehlt!" & return & return & "Ich habe versucht den Ordner zu öffnen." & return & "Bitte kopiere 'config.txt' dort hinein."
-					
-					set antwort to display dialog dText buttons {"Pfad kopieren", "OK", "Gehe zu Ordner..."} default button "Gehe zu Ordner..." with icon stop
-					
-					if button returned of antwort is "Pfad kopieren" then
-						set the clipboard to (POSIX path of configOrdnerPfad)
-						display dialog "Pfad kopiert! Du kannst ihn im Finder mit ⇧⌘G (Gehe zu Ordner) nutzen." buttons {"OK"}
-					else if button returned of antwort is "Gehe zu Ordner..." then
-						if (exists folder configOrdnerPfad) then
-							open folder configOrdnerPfad
-						else
-							open folder appSupportOrdner
-						end if
-					end if
-					return false
-				end if
-			end tell
-		end if
-		
-		-- 3. Config lesen
+		-- 5. Read config file
 		try
 			set configDatei to open for access file configPfad
 			set configInhalt to read configDatei as «class utf8»
@@ -312,7 +271,7 @@ on ladeConfig()
 			return false
 		end try
 		
-		-- Parse Config
+		-- 6. Parse config (existing logic)
 		set AppleScript's text item delimiters to {return, linefeed}
 		set zeilen to paragraphs of configInhalt
 		
@@ -334,17 +293,25 @@ on ladeConfig()
 						else if schluessel is "antwortBetreff" then
 							set antwortBetreff to wert
 						else if schluessel is "echteDaten" then
-							set echteDaten to (wert is "true")
-						else if schluessel is "testEmail" then
-							set testEmail to wert
+							if wert is "true" then
+								set echteDaten to true
+							else
+								set echteDaten to false
+							end if
 						else if schluessel is "verhalten" then
 							set verhalten to wert
 						else if schluessel is "originalLoeschen" then
-							set originalLoeschen to (wert is "true")
+							if wert is "true" then
+								set originalLoeschen to true
+							else
+								set originalLoeschen to false
+							end if
 						else if schluessel is "ignoriereEmailsVorTagen" then
 							try
 								set ignoriereEmailsVorTagen to wert as integer
 							end try
+						else if schluessel is "testEmail" then
+							set testEmail to wert
 						else if schluessel is "scoutIds" then
 							set scoutIds to wert
 						end if
@@ -353,13 +320,20 @@ on ladeConfig()
 				end if
 			end if
 		end repeat
+		
 		set AppleScript's text item delimiters to ""
+		
+		-- Log loaded config
+		my logLine("Config geladen | absenderEmail=" & absenderEmail & " | templatesOrdner=" & templatesOrdner & " | echteDaten=" & echteDaten & " | testEmail=" & testEmail & " | verhalten=" & verhalten & " | originalLoeschen=" & originalLoeschen & " | ignoriereEmailsVorTagen=" & ignoriereEmailsVorTagen & " | scoutIds=" & scoutIds)
+		
 		return true
+		
 	on error errMsg
-		display dialog "❌ Unerwarteter Fehler im Config-Loader." & return & return & "Details: " & errMsg buttons {"OK"}
+		display dialog "❌ Fehler beim Laden der Config." & return & return & "Details: " & errMsg buttons {"OK"}
 		return false
 	end try
 end ladeConfig
+
 
 -- ========================================
 -- E-MAIL VALIDIERUNG
@@ -865,11 +839,77 @@ on trim(derText)
 	return derText
 end trim
 
-on logPfad()
-	set appSupportOrdner to (path to application support from user domain as text)
-	set meinOrdnerName to "ImmoScout-Automation"
-	return (appSupportOrdner & meinOrdnerName & ":" & logDateiName)
-end logPfad
+-- ========================================
+-- LOGGING FUNKTIONEN
+-- ========================================
+
+on logsOrdnerPfad()
+	try
+		-- 1. Get current username
+		set username to do shell script "whoami"
+		
+		-- 2. Find app location
+		set appPfad to path to me
+		tell application "Finder"
+			set parentOrdner to (container of appPfad) as text
+		end tell
+		
+		-- 3. Build path: ../logs/{username}/
+		set logsOrdner to parentOrdner & "logs:" & username & ":"
+		
+		-- 4. Create folder if not exists
+		try
+			set logsOrdnerPosix to POSIX path of logsOrdner
+			do shell script "mkdir -p " & quoted form of logsOrdnerPosix
+		end try
+		
+		return logsOrdner
+		
+	on error errMsg
+		-- Absolute fallback if everything fails
+		return (path to startup disk as text) & "tmp:immoscout_logs:"
+	end try
+end logsOrdnerPfad
+
+-- Initialisiert eine neue Log-Datei für diesen Run
+on initializeLog()
+	try
+		-- Timestamp für Dateinamen
+		set zeitstempel to (do shell script "date '+%Y-%m-%d_%H-%M-%S'")
+		set logDateiName to "run_" & zeitstempel & ".log"
+		
+		-- Pfad holen
+		set logsOrdner to my logsOrdnerPfad()
+		set aktuellerLogPfad to logsOrdner & logDateiName
+		
+		-- Log-Datei erstellen (leer)
+		set f to open for access file aktuellerLogPfad with write permission
+		close access f
+		
+
+		
+	on error errMsg
+		try
+			close access file aktuellerLogPfad
+		on error
+			-- Ignore errors during close
+		end try
+	end try
+end initializeLog
+
+-- Löscht Log-Dateien die älter als 30 Tage sind
+on cleanupOldLogs()
+	try
+		set logsOrdner to my logsOrdnerPfad()
+		set logsOrdnerPosix to POSIX path of logsOrdner
+		
+		-- Finde und lösche Dateien älter als 30 Tage
+		do shell script "find " & quoted form of logsOrdnerPosix & " -name 'run_*.log' -type f -mtime +30 -delete"
+		
+	on error errMsg
+		-- Fehler beim Cleanup - nicht kritisch, einfach ignorieren
+	end try
+end cleanupOldLogs
 
 on logLine(msg)
 	if not loggingAktiv then return
@@ -878,8 +918,13 @@ on logLine(msg)
 		set ts to (do shell script "date '+%Y-%m-%d %H:%M:%S'")
 		set logString to ts & " | " & msg & linefeed
 		
-		set p to my logPfad()
-		set f to open for access file p with write permission
+		-- Verwende aktuellen Log-Pfad
+		if aktuellerLogPfad is "" then
+			-- Fallback falls initializeLog() nicht aufgerufen wurde
+			my initializeLog()
+		end if
+		
+		set f to open for access file aktuellerLogPfad with write permission
 		-- ans Ende springen und anhängen
 		set eof f to (get eof f)
 		write logString to f starting at eof
@@ -887,7 +932,7 @@ on logLine(msg)
 	on error errMsg
 		-- notfalls still schlucken, damit das Script nicht crasht
 		try
-			close access file (my logPfad())
+			close access file aktuellerLogPfad
 		end try
 	end try
 end logLine

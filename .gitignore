@@ -23,8 +23,21 @@
 
 # Local Project Files
 Bug Fixes.md
-config*
-*_utf8.applescript
 .DS_Store
-build/
 *.log
+
+# Configs
+# Allow the config directory and the template
+!config/
+!config/config.template.txt
+
+# BUT ignore all individual user configs
+config/*.txt
+!config/config.template.txt
+
+# Old Artifacts (Cleanup)
+build/
+scripts/
+version.txt
+config.txt
+

@@ -1,0 +1,32 @@
+# ImmobilienScout E-Mail Processor - Konfiguration
+# Format: schluessel=wert (ohne Leerzeichen um das =)
+
+# 1. VON WELCHER E-MAIL KOMMEN DIE IMMOSCOUT-ANFRAGEN?
+absenderEmail=nicolosi@wohnwert.im
+
+# 2. NAME DES TEMPLATE-ORDNERS IN MAIL
+templatesOrdner=ImmoScout Templates
+
+# 3. DEINE ABSENDER-ADRESSE
+absenderAdresse=andreas.diehl@gmail.com
+
+# 4. BETREFF FÜR ANTWORTEN (Platzhalter: {REFERENZ_ID}, {SCOUT_ID}, etc.)
+antwortBetreff=Ihre Anfrage zu Objekt {REFERENZ_ID}
+
+# 5. TEST-MODUS (false = Test, true = Produktiv)
+echteDaten=false
+
+# 6. TEST-E-MAIL-ADRESSE (wird verwendet wenn echteDaten=false)
+testEmail=andreas.diehl@gmail.com
+
+# 7. VERHALTEN (save = Entwurf, send = Direkt senden)
+verhalten=save
+
+# 8. ORIGINALE LÖSCHEN? (false = Behalten, true = Löschen)
+originalLoeschen=false
+
+# 9. NUR E-MAILS DER LETZTEN X TAGE BEARBEITEN
+ignoriereEmailsVorTagen=30
+
+# 10. NUR DIESE SCOUT-IDs BEARBEITEN (leer = alle)
+scoutIds=
